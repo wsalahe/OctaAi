@@ -16,13 +16,13 @@ def octagon(cx, cy, radius, rot=math.pi / 8):
              cy + radius * math.sin(rot + i * math.pi / 4)) for i in range(8)]
 
 
-def draw_mark(d, cx, cy, r, scale):
+def draw_mark(d, cx, cy, r):
     outer = octagon(cx, cy, r)
-    d.line(outer + [outer[0]], fill=TEAL, width=max(2, int(90 * scale)), joint='curve')
+    d.line(outer + [outer[0]], fill=TEAL, width=max(2, int(r * 0.11)), joint='curve')
     inner = octagon(cx, cy, r * 0.62)
-    d.line(inner + [inner[0]], fill=TEAL, width=max(1, int(36 * scale)), joint='curve')
+    d.line(inner + [inner[0]], fill=TEAL, width=max(1, int(r * 0.045)), joint='curve')
     d.line([(cx - r * 1.18, cy), (cx + r * 1.18, cy)], fill=TEAL,
-           width=max(1, int(36 * scale)))
+           width=max(1, int(r * 0.04)))
 
 
 def gradient(size):
@@ -41,7 +41,7 @@ def main():
     for dpi, px in LEGACY.items():
         im = gradient(px)
         d = ImageDraw.Draw(im)
-        draw_mark(d, px / 2, px / 2, px * 0.36, px / 512)
+        draw_mark(d, px / 2, px / 2, px * 0.36)
         out = os.path.join(RES, 'mipmap-' + dpi)
         os.makedirs(out, exist_ok=True)
         im.save(os.path.join(out, 'ic_launcher.png'))
@@ -51,7 +51,7 @@ def main():
     for dpi, px in FORE.items():
         im = Image.new('RGBA', (px, px), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
-        draw_mark(d, px / 2, px / 2, px * 0.24, px / 512)
+        draw_mark(d, px / 2, px / 2, px * 0.24)
         out = os.path.join(RES, 'mipmap-' + dpi)
         os.makedirs(out, exist_ok=True)
         im.save(os.path.join(out, 'ic_launcher_foreground.png'))
