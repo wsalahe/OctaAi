@@ -46,8 +46,8 @@ jobs:
           grep -q 'flutterdownloader.DownloadedFileProvider' "$MANIFEST" || { echo 'downloader provider missing'; exit 1; }
           GRADLE=android/app/build.gradle.kts
           [ -f "$GRADLE" ] || GRADLE=android/app/build.gradle
-          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk = 34/' "$GRADLE"
-          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk 34/' "$GRADLE"
+          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk = 36/' "$GRADLE"
+          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk 36/' "$GRADLE"
           grep -E 'compileSdk' "$GRADLE" | head -3
           echo '--- manifest head ---'
           head -20 "$MANIFEST"
@@ -56,6 +56,13 @@ jobs:
         run: |
           pip install pillow
           python3 tools/make_icons.py
+
+      - name: Install Android 36 SDK platform
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager)"
+          yes | "$SDKMANAGER" 'platforms;android-36' >/dev/null
+          "$SDKMANAGER" 'build-tools;36.0.0' >/dev/null || true
 
       - name: Install dependencies
         run: flutter pub get
