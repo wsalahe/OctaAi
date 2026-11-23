@@ -1,5 +1,7 @@
 # OctaAi
 
+<img width="1280" height="640" alt="OctaAi" src="https://github.com/user-attachments/assets/abaa44fe-6da9-406e-872e-ecd21187d832" />
+
 A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-device AI features.
 
 [![Build APK](https://github.com/wsalahe/OctaAi/actions/workflows/build-apk.yml/badge.svg)](https://github.com/wsalahe/OctaAi/actions/workflows/build-apk.yml)
@@ -21,6 +23,13 @@ A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-
 3. Done.
 
 Every push to `main` builds a fresh APK with GitHub Actions and publishes it as a release, so the link above is always the newest build.
+
+## Privacy
+
+- No ads and no trackers: a built-in content blocker cuts the biggest ad and tracking networks before they load
+- No accounts, no sign-in, no analytics in the app
+- DuckDuckGo is the default search, third-party cookies are off
+- The AI summary runs fully on your phone; page text never leaves the device
 
 ## Roadmap
 
