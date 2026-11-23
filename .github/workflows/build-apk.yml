@@ -42,6 +42,13 @@ jobs:
           grep -q 'android.permission.INTERNET' "$MANIFEST" || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' "$MANIFEST"
           grep -q 'usesCleartextTraffic' "$MANIFEST" || sed -i 's|<application|<application android:usesCleartextTraffic="true"|' "$MANIFEST"
           grep -q 'android.permission.INTERNET' "$MANIFEST" || { echo 'INTERNET permission still missing'; exit 1; }
+          grep -q 'flutterdownloader.DownloadedFileProvider' "$MANIFEST" || sed -i 's|</application>|    <provider android:name="vn.hunghd.flutterdownloader.DownloadedFileProvider" android:authorities="${applicationId}.flutter_downloader.provider" android:exported="false" android:grantUriPermissions="true">\n      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/provider_paths"/>\n    </provider>\n  </application>|' "$MANIFEST"
+          grep -q 'flutterdownloader.DownloadedFileProvider' "$MANIFEST" || { echo 'downloader provider missing'; exit 1; }
+          GRADLE=android/app/build.gradle.kts
+          [ -f "$GRADLE" ] || GRADLE=android/app/build.gradle
+          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk = 34/' "$GRADLE"
+          sed -i -E 's/compileSdk[ =]+flutter\.compileSdkVersion/compileSdk 34/' "$GRADLE"
+          grep -E 'compileSdk' "$GRADLE" | head -3
           echo '--- manifest head ---'
           head -20 "$MANIFEST"
 
@@ -57,6 +64,9 @@ jobs:
         run: |
           find ~/.pub-cache -path '*flutter_inappwebview_android*/android/build.gradle' -print0 | while IFS= read -r -d '' f; do
             sed -i "s/proguard-android\.txt/proguard-android-optimize.txt/g" "$f" && echo "patched $f"
+          done
+          find ~/.pub-cache -path '*flutter_downloader*/android/build.gradle' -print0 | while IFS= read -r -d '' f; do
+            grep -q 'namespace' "$f" || { sed -i 's|^android {|android {\n    namespace "vn.hunghd.flutterdownloader"|' "$f" && echo "namespaced $f"; }
           done
 
       - name: Build release APK
