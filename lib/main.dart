@@ -1,12 +1,26 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-void main() => runApp(const OctaAiApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FlutterDownloader.initialize(debug: false, ignoreSsl: true);
+  try {
+    // Ask Android for the panel's highest refresh rate (e.g. 120/144Hz).
+    // Falls back silently on 60Hz devices.
+    await FlutterDisplayMode.setHighRefreshRate();
+  } catch (_) {}
+  runApp(const OctaAiApp());
+}
 
 class OctaAiApp extends StatefulWidget {
   const OctaAiApp({super.key});
@@ -110,7 +124,7 @@ class BrowserPage extends StatefulWidget {
 }
 
 class _BrowserPageState extends State<BrowserPage> {
-  static const String _home = 'https://duckduckgo.com/';
+  static const String _home = 'https://wsalahe.github.io/octaai-search/';
   static const int _maxTabs = 12;
 
   final List<BrowserTab> _tabs = [BrowserTab(_home)];
@@ -118,6 +132,9 @@ class _BrowserPageState extends State<BrowserPage> {
   final TextEditingController _addressCtrl = TextEditingController();
   bool _barsVisible = true;
   int _lastScrollY = 0;
+  List<Map<String, String>> _videos = [];
+  Timer? _videoTimer;
+  bool _videoBusy = false;
 
   List<Map<String, String>> _bookmarks = [];
   List<Map<String, String>> _history = [];
@@ -141,6 +158,9 @@ class _BrowserPageState extends State<BrowserPage> {
   void initState() {
     super.initState();
     _loadStores();
+    _videoTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _scanVideos();
+    });
   }
 
   Future<void> _loadStores() async {
@@ -164,6 +184,7 @@ class _BrowserPageState extends State<BrowserPage> {
   @override
   void dispose() {
     _addressCtrl.dispose();
+    _videoTimer?.cancel();
     super.dispose();
   }
 
@@ -181,7 +202,7 @@ class _BrowserPageState extends State<BrowserPage> {
         !input.endsWith('.')) {
       url = 'https://$input';
     } else {
-      url = 'https://duckduckgo.com/?q=${Uri.encodeComponent(input)}';
+      url = 'https://wsalahe.github.io/octaai-search/?q=${Uri.encodeComponent(input)}';
     }
     t.url = url;
     t.controller?.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
@@ -453,6 +474,284 @@ class _BrowserPageState extends State<BrowserPage> {
     );
   }
 
+
+  // ---------- video download ----------
+
+  Future<void> _scanVideos() async {
+    if (_videoBusy) return;
+    final c = _tab.controller;
+    if (c == null) return;
+    _videoBusy = true;
+    try {
+      final r = await c.evaluateJavascript(source: """
+(function(){
+  try{
+    var out=[];
+    document.querySelectorAll('video').forEach(function(v){
+      if(v.currentSrc)out.push(v.currentSrc);
+      if(v.src)out.push(v.src);
+      v.querySelectorAll('source').forEach(function(s){if(s.src)out.push(s.src);});
+    });
+    try{
+      performance.getEntriesByType('resource').forEach(function(e){
+        if(/\\.(m3u8|mp4|webm|mov|mkv)(\\?|#|\$)/i.test(e.name))out.push(e.name);
+      });
+    }catch(e){}
+    var seen={},res=[];
+    out.forEach(function(u){
+      if(!u||u.indexOf('blob:')===0)return;
+      if(!seen[u]){seen[u]=1;res.push(u);}
+    });
+    return JSON.stringify(res.slice(0,20));
+  }catch(e){return '[]';}
+})();""");
+      final list = (jsonDecode((r ?? '[]').toString()) as List).cast<String>();
+      final mapped =
+          list.map((u) => <String, String>{'url': u, 'kind': _videoKind(u)}).toList();
+      final changed = mapped.length != _videos.length ||
+          (mapped.isNotEmpty && mapped.first['url'] != (_videos.isNotEmpty ? _videos.first['url'] : ''));
+      if (changed && mounted) {
+        setState(() => _videos = mapped);
+      } else {
+        _videos = mapped;
+      }
+    } catch (_) {
+      // page not ready or JS blocked; try again on the next tick
+    } finally {
+      _videoBusy = false;
+    }
+  }
+
+  String _videoKind(String u) {
+    final l = u.toLowerCase();
+    if (l.contains('.m3u8')) return 'hls';
+    if (l.contains('.mpd')) return 'dash';
+    return 'file';
+  }
+
+  void _showVideoSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(
+                title: Text('Download video',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text(
+                    'Works for direct video files and many HLS streams. Protected streams (DRM, e.g. Netflix) cannot be saved.'),
+              ),
+              ..._videos.map((v) {
+                final kind = v['kind'] ?? 'file';
+                final url = v['url'] ?? '';
+                final icon = kind == 'hls'
+                    ? Icons.stream
+                    : kind == 'dash'
+                        ? Icons.dashboard_customize_outlined
+                        : Icons.movie;
+                final label = kind == 'hls'
+                    ? 'Streaming video (HLS)'
+                    : kind == 'dash'
+                        ? 'Streaming video (DASH)'
+                        : 'Video file';
+                return ListTile(
+                  leading: Icon(icon),
+                  title: Text(label),
+                  subtitle: Text(Uri.tryParse(url)?.host ?? url,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    if (kind == 'dash') {
+                      _toast('DASH streams are not supported yet');
+                    } else if (kind == 'hls') {
+                      _downloadHls(url);
+                    } else {
+                      _downloadFile(url);
+                    }
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _downloadFile(String url) async {
+    final name = _fileNameFor(url);
+    try {
+      await FlutterDownloader.enqueue(
+        url: url,
+        savedDir: '/storage/emulated/0/Download',
+        fileName: name,
+        showNotification: true,
+        openFileFromNotification: true,
+      );
+      _toast('Downloading $name to Downloads');
+    } catch (_) {
+      _toast('Could not start the download');
+    }
+  }
+
+  Future<void> _downloadHls(String masterUrl) async {
+    try {
+      final body = await _fetchText(masterUrl);
+      final lines = body.split('\n').map((e) => e.trim()).toList();
+      final variants = <Map<String, String>>[];
+      for (var i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
+          final res = RegExp(r'RESOLUTION=(\d+x\d+)').firstMatch(lines[i]);
+          final bw = RegExp(r'BANDWIDTH=(\d+)').firstMatch(lines[i]);
+          final next = i + 1 < lines.length ? lines[i + 1] : '';
+          if (next.isNotEmpty && !next.startsWith('#')) {
+            variants.add(<String, String>{
+              'label': res != null
+                  ? res.group(1)!
+                  : (bw != null
+                      ? '${(int.parse(bw.group(1)!) / 1000000).toStringAsFixed(1)} Mbps'
+                      : 'Variant ${variants.length + 1}'),
+              'url': _resolveUrl(masterUrl, next),
+            });
+          }
+        }
+      }
+      if (!mounted) return;
+      if (variants.isEmpty) {
+        await _saveHls(masterUrl);
+        return;
+      }
+      final choice = await showModalBottomSheet<Map<String, String>>(
+        context: context,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (ctx) {
+          return SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const ListTile(
+                  title: Text('Choose quality',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+                ...variants.map((v) => ListTile(
+                      leading: const Icon(Icons.hd),
+                      title: Text(v['label'] ?? ''),
+                      onTap: () => Navigator.pop(ctx, v),
+                    )),
+              ],
+            ),
+          );
+        },
+      );
+      if (choice != null) {
+        await _saveHls(choice['url']!, label: choice['label'] ?? '');
+      }
+    } catch (_) {
+      _toast('Could not read this video stream');
+    }
+  }
+
+  Future<void> _saveHls(String playlistUrl, {String label = ''}) async {
+    _toast(label.isEmpty ? 'Preparing download...' : 'Preparing download ($label)...');
+    try {
+      final body = await _fetchText(playlistUrl);
+      final segs = <String>[];
+      for (final raw in body.split('\n')) {
+        final l = raw.trim();
+        if (l.isEmpty || l.startsWith('#')) continue;
+        segs.add(_resolveUrl(playlistUrl, l));
+      }
+      if (segs.isEmpty) {
+        _toast('No downloadable parts found in this stream');
+        return;
+      }
+      if (segs.first.toLowerCase().endsWith('.m4s')) {
+        _toast('This stream format (fMP4) is not supported yet');
+        return;
+      }
+      if (segs.length > 600) {
+        _toast('Stream is too long to save (${segs.length} parts)');
+        return;
+      }
+      final tmp = await getTemporaryDirectory();
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final out = File('${tmp.path}/octaai-$stamp.ts');
+      final sink = out.openWrite();
+      final client = HttpClient();
+      try {
+        for (var i = 0; i < segs.length; i++) {
+          final req = await client.getUrl(Uri.parse(segs[i]));
+          req.headers.set('User-Agent', kVideoUserAgent);
+          final resp = await req.close();
+          if (resp.statusCode != 200) {
+            throw HttpException('part ${i + 1} failed');
+          }
+          await resp.forEach(sink.add);
+        }
+      } finally {
+        client.close();
+        await sink.close();
+      }
+      final name = _fileNameFor(playlistUrl, '.ts');
+      try {
+        await out.copy('/storage/emulated/0/Download/$name');
+        _toast('Saved to Downloads/$name');
+      } catch (_) {
+        final docs = await getApplicationDocumentsDirectory();
+        final dest = await out.copy('${docs.path}/$name');
+        _toast('Saved in app folder: ${dest.path}');
+      }
+    } catch (_) {
+      _toast('Video download failed');
+    }
+  }
+
+  static const String kVideoUserAgent =
+      'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
+
+  Future<String> _fetchText(String url) async {
+    final client = HttpClient();
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      req.headers.set('User-Agent', kVideoUserAgent);
+      final resp = await req.close();
+      if (resp.statusCode != 200) {
+        throw HttpException('HTTP ${resp.statusCode}');
+      }
+      return await resp.transform(utf8.decoder).join();
+    } finally {
+      client.close();
+    }
+  }
+
+  String _resolveUrl(String base, String rel) {
+    if (rel.startsWith('http')) return rel;
+    return Uri.parse(base).resolve(rel).toString();
+  }
+
+  String _fileNameFor(String url, [String ext = '']) {
+    var base = '';
+    final segs = Uri.tryParse(url)?.pathSegments ?? const <String>[];
+    if (segs.isNotEmpty) base = segs.last.split('?').first;
+    if (base.isEmpty || base.length > 60 || !base.contains('.')) {
+      base =
+          'octaai-video-${DateTime.now().millisecondsSinceEpoch}${ext.isEmpty ? '.mp4' : ext}';
+    }
+    if (ext.isNotEmpty && !base.toLowerCase().endsWith(ext)) {
+      base = base.replaceAll(RegExp(r'\.[a-z0-9]+$'), '') + ext;
+    }
+    return base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  }
+
   // ---------- WebView builder ----------
 
   Widget _buildWebView(BrowserTab t) {
@@ -478,6 +777,7 @@ class _BrowserPageState extends State<BrowserPage> {
         if (t == _tab && mounted) _addressCtrl.text = t.url;
         _recordHistory(t);
         await _refreshNav(t);
+        _scanVideos();
       },
       onTitleChanged: (c, title) {
         if (title != null && title.isNotEmpty) t.title = title;
@@ -545,12 +845,20 @@ class _BrowserPageState extends State<BrowserPage> {
         }
       },
       child: Scaffold(
+        floatingActionButton: _videos.isEmpty
+            ? null
+            : FloatingActionButton.small(
+                heroTag: 'videoDownloadFab',
+                backgroundColor: cs.primary,
+                onPressed: _showVideoSheet,
+                child: const Icon(Icons.download, color: Colors.white),
+              ),
         body: SafeArea(
           child: Column(
             children: [
               AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
                 height: _barsVisible ? 64 : 0,
                 child: SingleChildScrollView(
                   physics: const NeverScrollableScrollPhysics(),
@@ -627,8 +935,8 @@ class _BrowserPageState extends State<BrowserPage> {
                 ),
               ),
               AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
                 height: _barsVisible ? 58 : 0,
                 child: SingleChildScrollView(
                   physics: const NeverScrollableScrollPhysics(),
