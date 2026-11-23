@@ -1,6 +1,6 @@
 # OctaAi
 
-<img width="1280" height="640" alt="OctaAi" src="https://github.com/user-attachments/assets/abaa44fe-6da9-406e-872e-ecd21187d832" />
+<img width="1280" height="640" alt="OctaAi" src="https://github.com/user-attachments/assets/f0ae2e95-7663-4166-a6be-27ed76791ae2" />
 
 A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-device AI features.
 
@@ -10,11 +10,12 @@ A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-
 
 ## Why OctaAi
 
-- **No ads, no trackers.** A built-in content blocker cuts the biggest ad and tracking networks before they load.
+- **No ads, no trackers.** A built-in content blocker cuts the biggest ad and tracking networks before they load, with a live block counter.
 - **Private by default.** DuckDuckGo search, third-party cookies off, nothing sent anywhere.
-- **On-device AI summary.** Long page? Tap the sparkles icon and get a short summary made on your phone. No account, no API key, nothing leaves the device.
+- **Tabs, bookmarks, history.** A real browser, not a demo.
+- **On-device AI summary.** Long page? Get a short summary made on your phone. No account, no API key, nothing leaves the device.
 - **Handles files and video.** Fullscreen HTML5 video, zoom, and files open in the right external app.
-- **Lightweight.** One small APK, no bloat, dark theme.
+- **Lightweight.** One small APK, dark and light themes.
 
 ## Install
 
@@ -33,8 +34,8 @@ Every push to `main` builds a fresh APK with GitHub Actions and publishes it as 
 
 ## Roadmap
 
-- v1 (this build): address bar with DuckDuckGo search, back/forward/reload/home, ad and tracker blocking, fullscreen video, external file handling, on-device page summary
-- M2: tabs, bookmarks and history, reader mode, text-to-speech
+- v0.2 (current): tabs, bookmarks, history, block counter, dark/light mode, launcher icon
+- M2: reader mode, text-to-speech, in-app download manager
 - M3: on-device translation, more blocklists
 
 ## Build it yourself
