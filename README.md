@@ -1,8 +1,12 @@
 # OctaAi
 
-<img width="1280" height="640" alt="OctaAi" src="https://github.com/user-attachments/assets/f0ae2e95-7663-4166-a6be-27ed76791ae2" />
+<p align="center">
+  <img width="256" alt="OctaAi logo" src="https://github.com/user-attachments/assets/1413b9fb-73d0-43f7-9caf-6877a4ba9bf7" />
+</p>
 
 A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-device AI features.
+
+**[Watch the intro video](https://github.com/user-attachments/assets/3a99a6f5-5a42-422f-9fe2-73c008904ae1)**
 
 [![Build APK](https://github.com/wsalahe/OctaAi/actions/workflows/build-apk.yml/badge.svg)](https://github.com/wsalahe/OctaAi/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -11,7 +15,9 @@ A free, open-source Android browser. Ad-free, no tracking, lightweight, with on-
 ## Why OctaAi
 
 - **No ads, no trackers.** A built-in content blocker cuts the biggest ad and tracking networks before they load, with a live block counter.
-- **Private by default.** DuckDuckGo search, third-party cookies off, nothing sent anywhere.
+- **Private by default.** [OctaAi Search](https://wsalahe.github.io/octaai-search/) is the built-in home and search engine: open-source metasearch with instant answers, no logs and no profiling. Third-party cookies off, nothing sent anywhere.
+- **Video downloads.** When a video plays, a download button appears. Pick a quality when the site offers one, and the file saves to your Downloads folder. Direct files and HLS streams are supported. DRM-protected streams (Widevine and similar) cannot be downloaded; that is a legal and technical line we do not cross.
+- **Fast and smooth.** Requests the highest refresh rate your screen supports (up to 144Hz where available) and uses smooth animations throughout.
 - **Tabs, bookmarks, history.** A real browser, not a demo.
 - **On-device AI summary.** Long page? Get a short summary made on your phone. No account, no API key, nothing leaves the device.
 - **Handles files and video.** Fullscreen HTML5 video, zoom, and files open in the right external app.
@@ -28,24 +34,10 @@ Every push to `main` builds a fresh APK with GitHub Actions and publishes it as 
 ## Privacy
 
 - No ads and no trackers: a built-in content blocker cuts the biggest ad and tracking networks before they load
-- No accounts, no sign-in, no analytics in the app
-- DuckDuckGo is the default search, third-party cookies are off
-- The AI summary runs fully on your phone; page text never leaves the device
+- Searches go to the OctaAi Search page, which talks only to the open-source search backends it needs and logs nothing
+- Third-party cookies are blocked
+- Your bookmarks, history and settings never leave your phone
 
-## Roadmap
+## Open source
 
-- v0.2 (current): tabs, bookmarks, history, block counter, dark/light mode, launcher icon
-- M2: reader mode, text-to-speech, in-app download manager
-- M3: on-device translation, more blocklists
-
-## Build it yourself
-
-```bash
-flutter pub get
-flutter create --platforms android --project-name octaai --org dev.octaai .
-flutter build apk --release
-```
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+MIT licensed. Issues and pull requests welcome.
