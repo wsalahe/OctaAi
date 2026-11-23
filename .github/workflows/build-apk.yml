@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: apk-build
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -24,6 +28,10 @@ jobs:
           channel: stable
           cache: true
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Generate Android platform scaffolding
         run: flutter create --platforms android --project-name octaai --org dev.octaai .
 
@@ -31,8 +39,16 @@ jobs:
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="[^"]*"/android:label="OctaAi"/' "$MANIFEST"
-          grep -q 'usesCleartextTraffic' "$MANIFEST" || sed -i 's|<application |<application android:usesCleartextTraffic="true" |' "$MANIFEST"
-          grep -q 'permission.INTERNET' "$MANIFEST" || sed -i 's|<application |<uses-permission android:name="android.permission.INTERNET"/>\n    <application |' "$MANIFEST"
+          grep -q 'android.permission.INTERNET' "$MANIFEST" || sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' "$MANIFEST"
+          grep -q 'usesCleartextTraffic' "$MANIFEST" || sed -i 's|<application|<application android:usesCleartextTraffic="true"|' "$MANIFEST"
+          grep -q 'android.permission.INTERNET' "$MANIFEST" || { echo 'INTERNET permission still missing'; exit 1; }
+          echo '--- manifest head ---'
+          head -20 "$MANIFEST"
+
+      - name: Generate launcher icons
+        run: |
+          pip install pillow
+          python3 tools/make_icons.py
 
       - name: Install dependencies
         run: flutter pub get
@@ -45,6 +61,15 @@ jobs:
 
       - name: Build release APK
         run: flutter build apk --release
+
+      - name: Verify APK has INTERNET permission
+        run: |
+          unzip -p build/app/outputs/flutter-apk/app-release.apk AndroidManifest.xml > /tmp/manifest.bin
+          if strings -e l /tmp/manifest.bin | grep -q 'android.permission.INTERNET'; then
+            echo 'INTERNET permission OK in built APK'
+          else
+            echo 'INTERNET permission MISSING in built APK'; exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
