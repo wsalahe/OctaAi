@@ -1,7 +1,7 @@
 name: octaai
 description: OctaAi - a free, open-source Android browser. Ad-free, no tracking, with on-device AI features.
 publish_to: 'none'
-version: 0.2.0+2
+version: 0.3.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -9,7 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_displaymode: ^0.6.0
+  flutter_downloader: ^1.11.8
   flutter_inappwebview: ^6.1.5
+  path_provider: ^2.1.4
   shared_preferences: ^2.3.0
   url_launcher: ^6.2.5
 
